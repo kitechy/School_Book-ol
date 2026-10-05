@@ -7,17 +7,26 @@ function app_environment(): string
 
 function app_is_https(): bool
 {
-    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-    if ($https) {
+    $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+    if (in_array($https, ['on', '1', 'https'], true)) {
         return true;
     }
 
-    $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    $remoteAddress = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $trustedProxies = array_filter(array_map(
+        'trim',
+        explode(',', (string) (getenv('TRUSTED_PROXY_IPS') ?: ''))
+    ));
+    if ($remoteAddress === '' || !in_array($remoteAddress, $trustedProxies, true)) {
+        return false;
+    }
+
+    $forwardedProto = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')));
     if ($forwardedProto === 'https') {
         return true;
     }
 
-    $forwardedSsl = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? ''));
+    $forwardedSsl = strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')));
     return $forwardedSsl === 'on';
 }
 
@@ -28,8 +37,19 @@ function app_ensure_https(): void
     }
 
     if (!headers_sent()) {
-        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $host = (string) (getenv('APP_CANONICAL_HOST') ?: ($_SERVER['SERVER_NAME'] ?? ''));
+        if (!preg_match('/\A(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\])(?::[0-9]{1,5})?\z/D', $host)) {
+            error_log('HTTPS redirect unavailable: configure a valid APP_CANONICAL_HOST.');
+            http_response_code(500);
+            exit('Service is temporarily unavailable.');
+        }
+
         $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        if (!is_string($requestUri) || $requestUri === '' || $requestUri[0] !== '/'
+            || str_starts_with($requestUri, '//')
+            || str_contains($requestUri, "\r") || str_contains($requestUri, "\n")) {
+            $requestUri = '/';
+        }
         header('Location: https://' . $host . $requestUri, true, 301);
     }
 
@@ -66,6 +86,7 @@ if (!headers_sent()) {
     header('X-Frame-Options: DENY');
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
     header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
     if (app_is_https()) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
