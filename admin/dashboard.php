@@ -3,23 +3,40 @@ require_once __DIR__ . '/../config/bootstrap.php';
 $admin = app_require_admin();
 $pdo = app_db();
 
+$pendingCountStatement = $pdo->prepare('SELECT COUNT(*) FROM bookings WHERE status = :status');
+$pendingCountStatement->execute(['status' => 'pending']);
 $counts = [
-    'pending' => (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'")->fetchColumn(),
-    'approved' => (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'approved'")->fetchColumn(),
-    'rejected' => (int) $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'rejected'")->fetchColumn(),
-    'users' => (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn(),
-    'rooms' => (int) $pdo->query("SELECT COUNT(*) FROM rooms WHERE status = 'active'")->fetchColumn(),
+    'pending' => (int) $pendingCountStatement->fetchColumn(),
 ];
-$pending = $pdo->query(
-    "SELECT b.id, b.booking_date, b.start_time, r.name AS room_name,
+
+$approvedCount = $pdo->prepare('SELECT COUNT(*) FROM bookings WHERE status = :status');
+$approvedCount->execute(['status' => 'approved']);
+$counts['approved'] = (int) $approvedCount->fetchColumn();
+
+$rejectedCount = $pdo->prepare('SELECT COUNT(*) FROM bookings WHERE status = :status');
+$rejectedCount->execute(['status' => 'rejected']);
+$counts['rejected'] = (int) $rejectedCount->fetchColumn();
+
+$userCount = $pdo->prepare('SELECT COUNT(*) FROM users');
+$userCount->execute();
+$counts['users'] = (int) $userCount->fetchColumn();
+
+$roomCount = $pdo->prepare("SELECT COUNT(*) FROM rooms WHERE status = :status");
+$roomCount->execute(['status' => 'active']);
+$counts['rooms'] = (int) $roomCount->fetchColumn();
+
+$pendingStatement = $pdo->prepare(
+    'SELECT b.id, b.booking_date, b.start_time, r.name AS room_name,
             u.first_name, u.last_name
      FROM bookings b
      JOIN rooms r ON r.id = b.room_id
      JOIN users u ON u.id = b.user_id
-     WHERE b.status = 'pending'
+     WHERE b.status = :status
      ORDER BY b.created_at ASC
-     LIMIT 10"
-)->fetchAll();
+     LIMIT 10'
+);
+$pendingStatement->execute(['status' => 'pending']);
+$pending = $pendingStatement->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">

@@ -67,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'last_name' => $values['last'],
                     'school_id' => $values['school_id'],
                     'email' => $values['email'],
-                    'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                    'password_hash' => app_password_hash($password),
                 ]);
                 $newUserId = (int) $pdo->lastInsertId();
                 app_audit($pdo, $newUserId, 'registration_success', 'user', $newUserId);

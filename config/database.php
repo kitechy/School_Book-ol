@@ -1,16 +1,16 @@
 <?php
 
-$appEnvironment = getenv('APP_ENV') ?: 'development';
+$appEnvironment = strtolower((string) (getenv('APP_ENV') ?: 'development'));
 $dbHost = getenv('DB_HOST') ?: '127.0.0.1';
 $dbName = getenv('DB_NAME') ?: 'school_bookol';
-$dbUsername = getenv('DB_USER') ?: ($appEnvironment === 'development' ? 'root' : '');
-$dbPassword = getenv('DB_PASS') ?: '';
+$dbUsername = getenv('DB_USER') ?: getenv('DB_USERNAME') ?: ($appEnvironment === 'development' ? 'root' : '');
+$dbPassword = getenv('DB_PASSWORD') ?: getenv('DB_PASS') ?: '';
 
 if (
     $dbUsername === ''
     || ($appEnvironment === 'production' && ($dbUsername === 'root' || $dbPassword === ''))
 ) {
-    throw new RuntimeException('Configure a non-root database account and password using DB_USER and DB_PASS.');
+    throw new RuntimeException('Configure a non-root database account and password using DB_USER and DB_PASSWORD.');
 }
 
 $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";

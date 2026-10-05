@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../config/bootstrap.php';
+
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
@@ -26,7 +28,7 @@ try {
     $find = $pdo->prepare('SELECT id FROM users WHERE school_id = :school_id FOR UPDATE');
     $find->execute(['school_id' => $schoolId]);
     $userId = $find->fetchColumn();
-    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    $passwordHash = app_password_hash($password);
     if ($userId) {
         $statement = $pdo->prepare(
             "UPDATE users SET first_name = :first_name, last_name = :last_name,

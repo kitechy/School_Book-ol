@@ -1,10 +1,12 @@
 <?php
 require_once __DIR__ . '/../config/bootstrap.php';
 app_require_admin();
-$users = app_db()->query(
+$statement = app_db()->prepare(
     'SELECT id, first_name, last_name, school_id, email, role, created_at
      FROM users ORDER BY created_at DESC LIMIT 500'
-)->fetchAll();
+);
+$statement->execute();
+$users = $statement->fetchAll();
 ?>
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Users | School Book-ol</title>
 <style>

@@ -49,7 +49,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user = $statement->fetch();
                 }
 
-                if ($user && password_verify($password, $user['password_hash'])) {
+                if ($user && app_password_verify($password, $user['password_hash'])) {
+                    $hashAlgorithm = defined('PASSWORD_ARGON2ID') ? PASSWORD_ARGON2ID : PASSWORD_BCRYPT;
+                    if (password_needs_rehash($user['password_hash'], $hashAlgorithm)) {
+                        $newHash = app_password_hash($password);
+                        $rehash = $pdo->prepare('UPDATE users SET password_hash = :password_hash WHERE id = :id');
+                        $rehash->execute([
+                            'password_hash' => $newHash,
+                            'id' => (int) $user['id'],
+                        ]);
+                    }
                     app_rate_limit_reset($pdo, 'login');
                     session_regenerate_id(true);
                     $_SESSION['user_id'] = (int) $user['id'];

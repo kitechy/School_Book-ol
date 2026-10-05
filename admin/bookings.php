@@ -10,12 +10,13 @@ if (!in_array($status, $allowedStatuses, true)) {
 
 $pdo = app_db();
 if ($status === 'all') {
-    $statement = $pdo->query(
+    $statement = $pdo->prepare(
         'SELECT b.id, b.booking_date, b.start_time, b.end_time, b.purpose, b.status,
                 r.name AS room_name, u.first_name, u.last_name
          FROM bookings b JOIN rooms r ON r.id = b.room_id JOIN users u ON u.id = b.user_id
          ORDER BY b.created_at DESC LIMIT 200'
     );
+    $statement->execute();
 } else {
     $statement = $pdo->prepare(
         'SELECT b.id, b.booking_date, b.start_time, b.end_time, b.purpose, b.status,

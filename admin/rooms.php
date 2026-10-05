@@ -107,7 +107,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$rooms = $pdo->query('SELECT id, name, description, capacity, location, status FROM rooms ORDER BY name')->fetchAll();
+$roomList = $pdo->prepare('SELECT id, name, description, capacity, location, status FROM rooms ORDER BY name');
+$roomList->execute();
+$rooms = $roomList->fetchAll();
 $editingRoom = null;
 $editId = filter_input(INPUT_GET, 'edit', FILTER_VALIDATE_INT);
 if ($editId) {

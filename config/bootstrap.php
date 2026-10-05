@@ -1,5 +1,43 @@
 <?php
 
+function app_environment(): string
+{
+    return strtolower((string) (getenv('APP_ENV') ?: 'development'));
+}
+
+function app_is_https(): bool
+{
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    if ($https) {
+        return true;
+    }
+
+    $forwardedProto = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+    if ($forwardedProto === 'https') {
+        return true;
+    }
+
+    $forwardedSsl = strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? ''));
+    return $forwardedSsl === 'on';
+}
+
+function app_ensure_https(): void
+{
+    if (PHP_SAPI === 'cli' || app_environment() !== 'production' || app_is_https()) {
+        return;
+    }
+
+    if (!headers_sent()) {
+        $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
+        header('Location: https://' . $host . $requestUri, true, 301);
+    }
+
+    exit;
+}
+
+app_ensure_https();
+
 function app_start_session(): void
 {
     if (session_status() === PHP_SESSION_ACTIVE) {
@@ -12,7 +50,7 @@ function app_start_session(): void
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
-        'secure' => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+        'secure' => app_is_https(),
         'httponly' => true,
         'samesite' => 'Lax',
     ]);
@@ -29,7 +67,7 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; form-action 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'");
-    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+    if (app_is_https()) {
         header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
     }
 }
@@ -52,6 +90,20 @@ function app_db(): PDO
     }
 
     return $pdo;
+}
+
+function app_password_hash(string $password): string
+{
+    if (defined('PASSWORD_ARGON2ID')) {
+        return password_hash($password, PASSWORD_ARGON2ID);
+    }
+
+    return password_hash($password, PASSWORD_BCRYPT);
+}
+
+function app_password_verify(string $password, string $storedHash): bool
+{
+    return password_verify($password, $storedHash);
 }
 
 function app_escape(string $value): string

@@ -71,7 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$rooms = $pdo->query("SELECT id, name FROM rooms WHERE status = 'active' ORDER BY name")->fetchAll();
+$roomList = $pdo->prepare('SELECT id, name FROM rooms WHERE status = :status ORDER BY name');
+$roomList->execute(['status' => 'active']);
+$rooms = $roomList->fetchAll();
 $bookingsStatement = $pdo->prepare(
     'SELECT b.id, b.booking_date, b.start_time, b.end_time, b.purpose, b.status, r.name AS room_name
      FROM bookings b JOIN rooms r ON r.id = b.room_id
@@ -80,12 +82,14 @@ $bookingsStatement = $pdo->prepare(
 $bookingsStatement->execute(['user_id' => $user['id']]);
 $bookings = $bookingsStatement->fetchAll();
 $pendingCount = count(array_filter($bookings, static fn(array $booking): bool => $booking['status'] === 'pending'));
-$upcomingBookings = $pdo->query(
-    "SELECT b.booking_date, b.start_time, b.end_time, b.purpose, r.name AS room_name
+$upcomingStatement = $pdo->prepare(
+    'SELECT b.booking_date, b.start_time, b.end_time, b.purpose, r.name AS room_name
      FROM bookings b JOIN rooms r ON r.id = b.room_id
-     WHERE b.status = 'approved' AND b.booking_date >= CURRENT_DATE
-     ORDER BY b.booking_date, b.start_time LIMIT 10"
-)->fetchAll();
+     WHERE b.status = :status AND b.booking_date >= CURRENT_DATE
+     ORDER BY b.booking_date, b.start_time LIMIT 10'
+);
+$upcomingStatement->execute(['status' => 'approved']);
+$upcomingBookings = $upcomingStatement->fetchAll();
 $fullName = trim($user['first_name'] . ' ' . $user['last_name']);
 $initials = strtoupper(
     mb_substr($user['first_name'], 0, 1) . mb_substr($user['last_name'], 0, 1)
@@ -157,7 +161,7 @@ function escape(string $value): string
   }
   .logo span { color: var(--pencil); }
 
-  .nav { list-style: none; display: grid; gap: 4px; flex: 1; }
+  .nav { list-style: none; display: grid; gap: 8px; }
 
   .nav a {
     display: block;
