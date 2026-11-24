@@ -121,9 +121,21 @@ if (!$booking) {
     exit('Booking not found.');
 }
 ?>
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Booking details | School Book-ol</title>
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Booking details | School Book-ol</title>
 <style>
-body{margin:0;background:#f6f7f3;color:#1d2a25;font:16px "Segoe UI",Arial,sans-serif}main{max-width:800px;margin:40px auto;padding:0 20px}h1{color:#1f3b33}.card{padding:24px;background:white;border:1px solid #c9d3cc;border-radius:12px}.facts{display:grid;grid-template-columns:180px 1fr;gap:12px}.facts dt{color:#5b6b64}.facts dd{margin:0;overflow-wrap:anywhere}.message{padding:12px;background:#f7e0e0;border-radius:8px}.message.success{background:#e1f1e8}.actions{display:flex;gap:12px;margin-top:24px}button{padding:12px 18px;border:0;border-radius:8px;background:#1f3b33;color:#fff;font:inherit;font-weight:600;cursor:pointer}button.reject{background:#fff;color:#a32929;border:1px solid #a32929}
+body {
+margin:0;
+background:#f6f7f3;
+color:#1d2a25;
+font:16px "Segoe UI",Arial,sans-serif
+}
+main {
+    max-width:800px;margin:40px auto;padding:0 20px}h1{color:#1f3b33}.card{padding:24px;background:white;border:1px solid #c9d3cc;border-radius:12px}.facts{display:grid;grid-template-columns:180px 1fr;gap:12px}.facts dt{color:#5b6b64}.facts dd{margin:0;overflow-wrap:anywhere}.message{padding:12px;background:#f7e0e0;border-radius:8px}.message.success{background:#e1f1e8}.actions{display:flex;gap:12px;margin-top:24px}button{padding:12px 18px;border:0;border-radius:8px;background:#1f3b33;color:#fff;font:inherit;font-weight:600;cursor:pointer}button.reject{background:#fff;color:#a32929;border:1px solid #a32929}
 </style></head><body><main>
 <p><a href="bookings.php">← Booking requests</a></p><h1>Booking #<?= (int) $booking['id'] ?></h1><section class="card">
 <?php if ($message !== ''): ?><p class="message<?= $messageType === 'success' ? ' success' : '' ?>" role="status"><?= app_escape($message) ?></p><?php endif; ?>

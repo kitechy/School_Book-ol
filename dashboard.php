@@ -35,30 +35,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $bookingError = 'Too many booking requests. Please wait and try again.';
     } else {
         try {
-            $room = $pdo->prepare("SELECT id FROM rooms WHERE id = :id AND status = 'active'");
+            $pdo->beginTransaction();
+            $room = $pdo->prepare("SELECT id FROM rooms WHERE id = :id AND status = 'active' FOR UPDATE");
             $room->execute(['id' => $roomId]);
             if (!$room->fetchColumn()) {
+                $pdo->rollBack();
                 $bookingError = 'That room is no longer available. Please choose an active room.';
             } else {
-                $pdo->beginTransaction();
-                $insert = $pdo->prepare(
-                    'INSERT INTO bookings (user_id, room_id, booking_date, start_time, end_time, people_count, purpose)
-                     VALUES (:user_id, :room_id, :booking_date, :start_time, :end_time, :people_count, :purpose)'
+                $conflict = $pdo->prepare(
+                    "SELECT id FROM bookings
+                     WHERE room_id = :room_id AND booking_date = :booking_date
+                       AND status IN ('pending', 'approved')
+                       AND start_time < :end_time AND end_time > :start_time
+                     LIMIT 1"
                 );
-                $insert->execute([
-                    'user_id' => $user['id'],
+                $conflict->execute([
                     'room_id' => $roomId,
                     'booking_date' => $values['date'],
-                    'start_time' => $values['start'],
                     'end_time' => $values['end'],
-                    'people_count' => $people,
-                    'purpose' => $values['purpose'],
+                    'start_time' => $values['start'],
                 ]);
-                $bookingId = (int) $pdo->lastInsertId();
-                app_audit($pdo, (int) $user['id'], 'booking_created', 'booking', $bookingId);
-                $pdo->commit();
-                $bookingSuccess = 'Your booking request was submitted for administrator review.';
-                $values = ['room_id' => '', 'date' => '', 'start' => '', 'end' => '', 'people' => '', 'purpose' => ''];
+                if ($conflict->fetchColumn()) {
+                    $pdo->rollBack();
+                    http_response_code(409);
+                    $bookingError = 'That room already has a pending or approved booking that overlaps this time.';
+                } else {
+                    $insert = $pdo->prepare(
+                        'INSERT INTO bookings (user_id, room_id, booking_date, start_time, end_time, people_count, purpose)
+                         VALUES (:user_id, :room_id, :booking_date, :start_time, :end_time, :people_count, :purpose)'
+                    );
+                    $insert->execute([
+                        'user_id' => $user['id'],
+                        'room_id' => $roomId,
+                        'booking_date' => $values['date'],
+                        'start_time' => $values['start'],
+                        'end_time' => $values['end'],
+                        'people_count' => $people,
+                        'purpose' => $values['purpose'],
+                    ]);
+                    $bookingId = (int) $pdo->lastInsertId();
+                    app_audit($pdo, (int) $user['id'], 'booking_created', 'booking', $bookingId);
+                    $pdo->commit();
+                    $bookingSuccess = 'Your booking request was submitted for administrator review.';
+                    $values = ['room_id' => '', 'date' => '', 'start' => '', 'end' => '', 'people' => '', 'purpose' => ''];
+                }
             }
         } catch (PDOException $exception) {
             if ($pdo->inTransaction()) {

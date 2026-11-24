@@ -26,7 +26,7 @@ This is a server-rendered PHP application using PDO/MySQL and PHP server-side se
 ### Backend and database
 
 - SQL values use PDO prepared statements. Passwords use PHP `password_hash()` / `password_verify()`.
-- Booking inputs are validated server-side. Admin approval locks the booking and room rows in a transaction, checks the request is pending, checks the room is active, checks for overlapping approved bookings, updates the status, and writes its audit event in the same transaction.
+- Booking inputs are validated server-side. New requests lock the active room in a transaction and reject overlapping pending or approved bookings for the same room and date, preventing simultaneous submissions from creating duplicates. Admin approval also locks the booking and room rows, checks the request is pending, checks the room is active, checks for overlapping approved bookings, updates the status, and writes its audit event in the same transaction.
 - Room create/update/disable/activate actions are CSRF-protected, validated, transactional, and audited. Rooms are disabled rather than deleted, preserving booking history.
 - Audit events include login success/failure, logout, registration, booking creation/review, room administration, and admin provisioning. Passwords and password hashes are not logged.
 - `config/database.php` reads connection settings from environment variables. Development defaults to XAMPP's local `root` account; production refuses an empty or root database username.
@@ -71,7 +71,7 @@ Start local development with:
 - **XSS:** Submit a booking purpose containing `<script>alert(1)</script>` and inspect the booking details/list. It must appear escaped as text and must not execute.
 - **CSRF:** Submit an approval, booking, room, or logout form without its token; the server should return 403.
 - **RBAC:** Open `/admin/dashboard.php` without a session (401) and with a Student session (403); an Admin session should render the dashboard.
-- **Booking conflicts:** Create two overlapping requests for the same room/date, approve the first, then approve the second. The second must return 409 and remain pending.
+- **Booking conflicts:** Submit two overlapping requests for the same room/date. The second must return 409 and must not be inserted. Also create two overlapping pending requests by direct fixture setup and verify that approving one causes approval of the other to return 409.
 - **Headers:** Inspect response headers for CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`. HSTS is emitted only for HTTPS requests.
 - **Password storage:** Inspect only the hash algorithm/length in MySQL; no UI query returns `password_hash`.
 - **Secrets:** Search tracked files and browser responses for actual database/admin credentials. The example environment file contains placeholders only.
