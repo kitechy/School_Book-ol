@@ -55,18 +55,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                          LIMIT 1"
                     );
                     if ($pdo->inTransaction()) {
-                    $conflict->execute([
-                        'room_id' => $booking['room_id'],
-                        'booking_date' => $booking['booking_date'],
-                        'booking_id' => $bookingId,
-                        'end_time' => $booking['end_time'],
-                        'start_time' => $booking['start_time'],
-                    ]);
-                    if ($conflict->fetchColumn()) {
-                        $pdo->rollBack();
-                        http_response_code(409);
-                        $message = 'This room already has an approved booking that overlaps this time.';
-                    }
+                        $conflict->execute([
+                            'room_id' => $booking['room_id'],
+                            'booking_date' => $booking['booking_date'],
+                            'booking_id' => $bookingId,
+                            'end_time' => $booking['end_time'],
+                            'start_time' => $booking['start_time'],
+                        ]);
+                        if ($conflict->fetchColumn()) {
+                            $pdo->rollBack();
+                            http_response_code(409);
+                            $message = 'This room already has an approved booking that overlaps this time.';
+                        }
                     }
                 }
 
@@ -123,32 +123,122 @@ if (!$booking) {
 ?>
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Booking details | School Book-ol</title>
-<style>
-body {
-margin:0;
-background:#f6f7f3;
-color:#1d2a25;
-font:16px "Segoe UI",Arial,sans-serif
-}
-main {
-    max-width:800px;margin:40px auto;padding:0 20px}h1{color:#1f3b33}.card{padding:24px;background:white;border:1px solid #c9d3cc;border-radius:12px}.facts{display:grid;grid-template-columns:180px 1fr;gap:12px}.facts dt{color:#5b6b64}.facts dd{margin:0;overflow-wrap:anywhere}.message{padding:12px;background:#f7e0e0;border-radius:8px}.message.success{background:#e1f1e8}.actions{display:flex;gap:12px;margin-top:24px}button{padding:12px 18px;border:0;border-radius:8px;background:#1f3b33;color:#fff;font:inherit;font-weight:600;cursor:pointer}button.reject{background:#fff;color:#a32929;border:1px solid #a32929}
-</style></head><body><main>
-<p><a href="bookings.php">← Booking requests</a></p><h1>Booking #<?= (int) $booking['id'] ?></h1><section class="card">
-<?php if ($message !== ''): ?><p class="message<?= $messageType === 'success' ? ' success' : '' ?>" role="status"><?= app_escape($message) ?></p><?php endif; ?>
-<dl class="facts">
-<dt>Requester</dt><dd><?= app_escape($booking['first_name'] . ' ' . $booking['last_name']) ?> (<?= app_escape($booking['school_id']) ?>)</dd>
-<dt>Email</dt><dd><?= app_escape($booking['email']) ?></dd><dt>Room</dt><dd><?= app_escape($booking['room_name']) ?><?= $booking['room_location'] ? ' — ' . app_escape($booking['room_location']) : '' ?></dd>
-<dt>Date</dt><dd><?= app_escape($booking['booking_date']) ?></dd><dt>Time</dt><dd><?= app_escape(substr($booking['start_time'], 0, 5) . '–' . substr($booking['end_time'], 0, 5)) ?></dd>
-<dt>Purpose</dt><dd><?= nl2br(app_escape($booking['purpose'])) ?></dd><dt>People</dt><dd><?= $booking['people_count'] === null ? 'Not specified' : (int) $booking['people_count'] ?></dd>
-<dt>Status</dt><dd><?= app_escape(ucfirst($booking['status'])) ?></dd><dt>Submitted</dt><dd><?= app_escape($booking['created_at']) ?></dd>
-<?php if ($booking['reviewed_at']): ?><dt>Reviewed by</dt><dd><?= app_escape(trim(($booking['reviewer_first'] ?? '') . ' ' . ($booking['reviewer_last'] ?? ''))) ?></dd><dt>Reviewed at</dt><dd><?= app_escape($booking['reviewed_at']) ?></dd><?php endif; ?>
-</dl>
-<?php if ($booking['status'] === 'pending'): ?><form method="post">
-<input type="hidden" name="csrf_token" value="<?= app_escape(app_csrf_token()) ?>">
-<div class="actions"><button type="submit" name="decision" value="approved">Approve</button><button class="reject" type="submit" name="decision" value="rejected">Reject</button></div>
-</form><?php endif; ?>
-</section></main></body></html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Booking details | School Book-ol</title>
+    <style>
+        body {
+            margin: 0;
+            background: #f6f7f3;
+            color: #1d2a25;
+            font: 16px "Segoe UI", Arial, sans-serif
+        }
+
+        main {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px
+        }
+
+        h1 {
+            color: #1f3b33
+        }
+
+        .card {
+            padding: 24px;
+            background: white;
+            border: 1px solid #c9d3cc;
+            border-radius: 12px
+        }
+
+        .facts {
+            display: grid;
+            grid-template-columns: 180px 1fr;
+            gap: 12px
+        }
+
+        .facts dt {
+            color: #5b6b64
+        }
+
+        .facts dd {
+            margin: 0;
+            overflow-wrap: anywhere
+        }
+
+        .message {
+            padding: 12px;
+            background: #f7e0e0;
+            border-radius: 8px
+        }
+
+        .message.success {
+            background: #e1f1e8
+        }
+
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px
+        }
+
+        button {
+            padding: 12px 18px;
+            border: 0;
+            border-radius: 8px;
+            background: #1f3b33;
+            color: #fff;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer
+        }
+
+        button.reject {
+            background: #fff;
+            color: #a32929;
+            border: 1px solid #a32929
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <p><a href="bookings.php">← Booking requests</a></p>
+        <h1>Booking #<?= (int) $booking['id'] ?></h1>
+        <section class="card">
+            <?php if ($message !== ''): ?><p class="message<?= $messageType === 'success' ? ' success' : '' ?>" role="status"><?= app_escape($message) ?></p><?php endif; ?>
+            <dl class="facts">
+                <dt>Requester</dt>
+                <dd><?= app_escape($booking['first_name'] . ' ' . $booking['last_name']) ?> (<?= app_escape($booking['school_id']) ?>)</dd>
+                <dt>Email</dt>
+                <dd><?= app_escape($booking['email']) ?></dd>
+                <dt>Room</dt>
+                <dd><?= app_escape($booking['room_name']) ?><?= $booking['room_location'] ? ' — ' . app_escape($booking['room_location']) : '' ?></dd>
+                <dt>Date</dt>
+                <dd><?= app_escape($booking['booking_date']) ?></dd>
+                <dt>Time</dt>
+                <dd><?= app_escape(substr($booking['start_time'], 0, 5) . '–' . substr($booking['end_time'], 0, 5)) ?></dd>
+                <dt>Purpose</dt>
+                <dd><?= nl2br(app_escape($booking['purpose'])) ?></dd>
+                <dt>People</dt>
+                <dd><?= $booking['people_count'] === null ? 'Not specified' : (int) $booking['people_count'] ?></dd>
+                <dt>Status</dt>
+                <dd><?= app_escape(ucfirst($booking['status'])) ?></dd>
+                <dt>Submitted</dt>
+                <dd><?= app_escape($booking['created_at']) ?></dd>
+                <?php if ($booking['reviewed_at']): ?><dt>Reviewed by</dt>
+                    <dd><?= app_escape(trim(($booking['reviewer_first'] ?? '') . ' ' . ($booking['reviewer_last'] ?? ''))) ?></dd>
+                    <dt>Reviewed at</dt>
+                    <dd><?= app_escape($booking['reviewed_at']) ?></dd><?php endif; ?>
+            </dl>
+            <?php if ($booking['status'] === 'pending'): ?><form method="post">
+                    <input type="hidden" name="csrf_token" value="<?= app_escape(app_csrf_token()) ?>">
+                    <div class="actions"><button type="submit" name="decision" value="approved">Approve</button><button class="reject" type="submit" name="decision" value="rejected">Reject</button></div>
+                </form><?php endif; ?>
+        </section>
+    </main>
+</body>
+
+</html>
